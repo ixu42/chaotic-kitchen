@@ -10,7 +10,7 @@ Useful for learning: topics, producers, consumers, consumer groups, keys, DLQ.
 ## Tech stack
 
 - Docker (Apache Kafka)
-- Python 3.10+
+- Python 3.12+
 - `confluent-kafka`
 
 ## Topics
