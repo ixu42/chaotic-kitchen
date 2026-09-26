@@ -13,6 +13,23 @@ Useful for learning: topics, producers, consumers, consumer groups, keys, DLQ.
 - Python 3.12+
 - `confluent-kafka`
 
+## Architecture
+
+```mermaid
+flowchart LR
+    A[Order producer] --> B[Incoming orders]
+    B --> C[Router]
+    C --> D[Kitchen stations]
+    D -->|Success| E[Ready orders]
+    D -->|Failure| F[Burnt orders]
+    B -.-> G[Live board]
+    D -.-> G
+    E -.-> G
+    F -.-> G
+```
+
+Solid arrows = order path. Dotted arrows = live board observing. Stations = grill / drinks / dessert.
+
 ## Topics
 
 | Topic | Role |
