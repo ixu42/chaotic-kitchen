@@ -57,8 +57,8 @@ def main() -> None:
                 )
                 producer.poll(0)
                 print(
-                    f"  🗑️  discard {order.order_id} ({order.item}) "
-                    f"after attempt {order.attempt}"
+                    f"  🗑️  discard {order.order_id} ({order.item}) — "
+                    f"failed {MAX_ATTEMPTS} cook attempts, giving up"
                 )
                 continue
 
