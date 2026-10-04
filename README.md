@@ -113,7 +113,7 @@ Swap `orders.incoming` for `station.grill`, `orders.ready`, `orders.burnt`, `ord
 ## Stop
 
 ```bash
-docker compose down
+docker compose down -v
 ```
 
 ## Concepts covered
