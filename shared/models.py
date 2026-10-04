@@ -14,6 +14,12 @@ TOPIC_DRINKS = "station.drinks"
 TOPIC_DESSERT = "station.dessert"
 TOPIC_BURNT = "orders.burnt"
 TOPIC_READY = "orders.ready"
+TOPIC_DISCARDED = "orders.discarded"
+
+# Burnt orders may be retried until attempt exceeds this.
+MAX_ATTEMPTS = 3
+# Seconds to wait before requeueing a burnt order.
+RETRY_BACKOFF_SECS = 1.5
 
 STATION_TOPICS = {
     "grill": TOPIC_GRILL,

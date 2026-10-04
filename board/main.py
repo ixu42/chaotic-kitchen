@@ -12,6 +12,7 @@ from shared.kafka_client import make_consumer
 from shared.models import (
     TOPIC_BURNT,
     TOPIC_DESSERT,
+    TOPIC_DISCARDED,
     TOPIC_DRINKS,
     TOPIC_GRILL,
     TOPIC_INCOMING,
@@ -26,6 +27,7 @@ TOPICS = [
     TOPIC_DESSERT,
     TOPIC_READY,
     TOPIC_BURNT,
+    TOPIC_DISCARDED,
 ]
 
 
@@ -42,6 +44,7 @@ def render(counts: Counter[str], last: list[str]) -> None:
     print(f"  Dessert tickets:{counts[TOPIC_DESSERT]:4d}")
     print(f"  Ready         : {counts[TOPIC_READY]:4d}")
     print(f"  Burnt (DLQ)   : {counts[TOPIC_BURNT]:4d}")
+    print(f"  Discarded     : {counts[TOPIC_DISCARDED]:4d}")
     print()
     print("Recent:")
     for line in last[-8:]:

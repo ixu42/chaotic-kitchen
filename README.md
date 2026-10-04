@@ -3,7 +3,8 @@
 A Kafka hobby project: a chaotic restaurant kitchen.
 
 Orders stream in on Kafka. A router sends them to grill / drinks / dessert stations.
-Stations sometimes burn food → **dead-letter topic**. A live board shows the madness.
+Stations sometimes burn food → **dead-letter topic**. A retryer requeues with backoff
+(or discards after max attempts). A live board shows the madness.
 
 Useful for learning: topics, producers, consumers, consumer groups, keys, DLQ.
 
@@ -22,10 +23,13 @@ flowchart LR
     C --> D[Kitchen stations]
     D -->|Success| E[Ready orders]
     D -->|Failure| F[Burnt orders]
+    F -->|Retry after backoff| D
+    F -->|Max attempts| H[Discarded]
     B -.-> G[Live board]
     D -.-> G
     E -.-> G
     F -.-> G
+    H -.-> G
 ```
 
 Solid arrows = order path. Dotted arrows = live board observing. Stations = grill / drinks / dessert.
@@ -39,7 +43,8 @@ Solid arrows = order path. Dotted arrows = live board observing. Stations = gril
 | `station.drinks` | Drinks |
 | `station.dessert` | Desserts |
 | `orders.ready` | Completed |
-| `orders.burnt` | Dead-letter (failures) |
+| `orders.burnt` | Dead-letter (failures, retried) |
+| `orders.discarded` | Gave up after max attempts / poison |
 
 ## Setup
 
@@ -52,6 +57,12 @@ docker compose up -d
 ```
 
 Wait until Kafka is healthy and `init-topics` finishes (`docker compose ps`).
+
+If Kafka was already running from an older checkout, recreate topics:
+
+```bash
+docker compose up init-topics
+```
 
 ## Run (separate terminals)
 
@@ -69,7 +80,10 @@ python workers/station.py grill
 python workers/station.py drinks
 python workers/station.py dessert
 
-# 4) Flood the kitchen (orders per second)
+# 4) Retry burnt orders (backoff, then station or discard)
+python workers/retry.py
+
+# 5) Flood the kitchen (orders per second)
 python producer/main.py 2
 ```
 
@@ -94,7 +108,7 @@ docker exec -it chaotic-kitchen-kafka \
   --property key.separator=" | "
 ```
 
-Swap `orders.incoming` for `station.grill`, `orders.ready`, `orders.burnt`, etc.
+Swap `orders.incoming` for `station.grill`, `orders.ready`, `orders.burnt`, `orders.discarded`, etc.
 
 ## Stop
 
@@ -106,5 +120,6 @@ docker compose down
 
 - Event-driven pipeline with multiple consumer groups
 - Partition key = `order_id` (ordering per order)
-- Dead-letter topic for poison / burnt work
+- Dead-letter topic with retry and a final discard topic
+- Backoff before retry — without a pause, burnt orders can loop `burnt → station → burnt` and flood the system
 - Backpressure / lag visible when grill is slower than intake
