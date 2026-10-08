@@ -64,26 +64,20 @@ If Kafka was already running from an older checkout, recreate topics:
 docker compose up init-topics
 ```
 
-## Run (separate terminals)
+## Run
+
+Start order: Kafka → kitchen workers → board → producer.
 
 ```bash
 source .venv/bin/activate
 
-# 1) Live board
+# Terminal 1 — router, stations, retry
+python run_kitchen.py
+
+# Terminal 2 — live board (static redraw)
 python board/main.py
 
-# 2) Router
-python router/main.py
-
-# 3) Stations
-python workers/station.py grill
-python workers/station.py drinks
-python workers/station.py dessert
-
-# 4) Retry burnt orders (backoff, then station or discard)
-python workers/retry.py
-
-# 5) Flood the kitchen (orders per second)
+# Terminal 3 — flood the kitchen (orders per second)
 python producer/main.py 2
 ```
 
