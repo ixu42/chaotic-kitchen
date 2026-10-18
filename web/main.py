@@ -21,6 +21,7 @@ sys.path.insert(0, str(ROOT))
 from shared.kafka_client import delivery_report, make_consumer, make_producer
 from shared.models import (
     ITEM_STATION,
+    MAX_ATTEMPTS,
     TOPIC_BURNT,
     TOPIC_DESSERT,
     TOPIC_DISCARDED,
@@ -45,6 +46,27 @@ STATIC = Path(__file__).resolve().parent / "static"
 
 # Own consumer group so ASCII board and web board can run together.
 GROUP_ID = "kitchen-web-board"
+
+
+def format_recent_line(topic: str, raw: bytes | None) -> str:
+    """Human-readable recent-event row, including attempt / discard reason."""
+    try:
+        order = Order.from_json(raw or b"")
+    except Exception:
+        if topic == TOPIC_DISCARDED:
+            return f"{topic:18} <unreadable>  poison payload"
+        return f"{topic:18} <unreadable>"
+
+    base = f"{topic:18} {order.order_id} {order.item}  attempt={order.attempt}"
+    if topic == TOPIC_DISCARDED:
+        if order.attempt > MAX_ATTEMPTS:
+            return f"{base}  max attempts"
+        return f"{base}  discarded"
+    if topic == TOPIC_BURNT:
+        return f"{base}  burnt"
+    if topic == TOPIC_READY:
+        return f"{base}  ready"
+    return base
 
 
 class BoardHub:
@@ -96,12 +118,7 @@ class BoardHub:
                 topic = msg.topic() or ""
                 with self._lock:
                     self.counts[topic] += 1
-                    try:
-                        order = Order.from_json(msg.value())
-                        line = f"{topic:18} {order.order_id} {order.item}"
-                    except Exception:
-                        line = f"{topic:18} <unreadable>"
-                    self.recent.append(line)
+                    self.recent.append(format_recent_line(topic, msg.value()))
                     if len(self.recent) > 100:
                         self.recent = self.recent[-100:]
                     payload = {
