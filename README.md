@@ -13,6 +13,7 @@ Useful for learning: topics, producers, consumers, consumer groups, keys, DLQ.
 - Apache Kafka 4.3.1 (Docker, KRaft)
 - Python 3.12
 - `confluent-kafka` 2.15.1
+- FastAPI + Uvicorn (local web board)
 
 ## Architecture
 
@@ -74,11 +75,19 @@ source .venv/bin/activate
 # Terminal 1 — router, stations, retry
 python run_kitchen.py
 
-# Terminal 2 — live board (static redraw)
-python board/main.py
+# Terminal 2 — live web board → http://127.0.0.1:8000
+python web/main.py
 
 # Terminal 3 — flood the kitchen (orders per second)
 python producer/main.py 2
+```
+
+Open http://127.0.0.1:8000 for counts and recent events (WebSocket).
+
+Optional ASCII board (uses its own consumer group; can run beside the web board):
+
+```bash
+python board/main.py
 ```
 
 Turn up the producer rate (`5`, `10`, …) and watch grill lag / burns climb.

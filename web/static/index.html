@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Chaotic Kitchen — Live</title>
+  <style>
+    :root {
+      --bg: #1a1512;
+      --panel: #241e19;
+      --ink: #f3ebe3;
+      --muted: #b5a89a;
+      --line: #3d342c;
+      --ready: #7dba6a;
+      --burnt: #e07a5f;
+      --discard: #c9a227;
+      --accent: #f2cc8f;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "IBM Plex Mono", "Consolas", "Courier New", monospace;
+      background:
+        radial-gradient(ellipse at top, #2a211c 0%, var(--bg) 55%),
+        var(--bg);
+      color: var(--ink);
+      padding: 1.5rem;
+    }
+    header {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 0.75rem;
+      margin-bottom: 1.25rem;
+      border-bottom: 1px solid var(--line);
+      padding-bottom: 0.75rem;
+    }
+    h1 {
+      margin: 0;
+      font-size: 1.35rem;
+      font-weight: 500;
+      letter-spacing: 0.04em;
+      color: var(--accent);
+    }
+    #status {
+      font-size: 0.85rem;
+      color: var(--muted);
+    }
+    #status.ok { color: var(--ready); }
+    #status.bad { color: var(--burnt); }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 0.75rem;
+      margin-bottom: 1.5rem;
+    }
+    .metric {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      padding: 0.9rem 1rem;
+    }
+    .metric .label {
+      display: block;
+      font-size: 0.75rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-bottom: 0.35rem;
+    }
+    .metric .value {
+      font-size: 1.6rem;
+      font-variant-numeric: tabular-nums;
+    }
+    .metric.ready .value { color: var(--ready); }
+    .metric.burnt .value { color: var(--burnt); }
+    .metric.discard .value { color: var(--discard); }
+    h2 {
+      margin: 0 0 0.6rem;
+      font-size: 0.95rem;
+      font-weight: 500;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+    #recent {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      min-height: 12rem;
+    }
+    #recent li {
+      padding: 0.45rem 0.85rem;
+      border-bottom: 1px solid var(--line);
+      font-size: 0.9rem;
+      color: var(--ink);
+    }
+    #recent li:last-child { border-bottom: none; }
+    #recent li.empty { color: var(--muted); }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Chaotic Kitchen — Live</h1>
+    <div id="status">connecting…</div>
+  </header>
+
+  <div class="grid" aria-label="Kitchen counts">
+    <div class="metric"><span class="label">Incoming</span><span class="value" id="c-incoming">0</span></div>
+    <div class="metric"><span class="label">Grill</span><span class="value" id="c-grill">0</span></div>
+    <div class="metric"><span class="label">Drinks</span><span class="value" id="c-drinks">0</span></div>
+    <div class="metric"><span class="label">Dessert</span><span class="value" id="c-dessert">0</span></div>
+    <div class="metric ready"><span class="label">Ready</span><span class="value" id="c-ready">0</span></div>
+    <div class="metric burnt"><span class="label">Burnt</span><span class="value" id="c-burnt">0</span></div>
+    <div class="metric discard"><span class="label">Discarded</span><span class="value" id="c-discarded">0</span></div>
+  </div>
+
+  <h2>Recent</h2>
+  <ul id="recent" aria-live="polite">
+    <li class="empty">Waiting for orders…</li>
+  </ul>
+
+  <script>
+    const ids = {
+      "orders.incoming": "c-incoming",
+      "station.grill": "c-grill",
+      "station.drinks": "c-drinks",
+      "station.dessert": "c-dessert",
+      "orders.ready": "c-ready",
+      "orders.burnt": "c-burnt",
+      "orders.discarded": "c-discarded",
+    };
+
+    const statusEl = document.getElementById("status");
+    const recentEl = document.getElementById("recent");
+
+    function apply(state) {
+      const counts = state.counts || {};
+      for (const [topic, elId] of Object.entries(ids)) {
+        const el = document.getElementById(elId);
+        if (el) el.textContent = String(counts[topic] || 0);
+      }
+      const recent = state.recent || [];
+      if (!recent.length) {
+        recentEl.innerHTML = '<li class="empty">Waiting for orders…</li>';
+        return;
+      }
+      recentEl.innerHTML = recent
+        .slice()
+        .reverse()
+        .map((line) => `<li>${escapeHtml(line)}</li>`)
+        .join("");
+    }
+
+    function escapeHtml(s) {
+      return String(s)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;");
+    }
+
+    function connect() {
+      const proto = location.protocol === "https:" ? "wss" : "ws";
+      const ws = new WebSocket(`${proto}://${location.host}/ws`);
+      ws.onopen = () => {
+        statusEl.textContent = "live";
+        statusEl.className = "ok";
+      };
+      ws.onmessage = (ev) => {
+        try {
+          apply(JSON.parse(ev.data));
+        } catch (_) {}
+      };
+      ws.onclose = () => {
+        statusEl.textContent = "reconnecting…";
+        statusEl.className = "bad";
+        setTimeout(connect, 1000);
+      };
+      ws.onerror = () => ws.close();
+    }
+
+    connect();
+  </script>
+</body>
+</html>
