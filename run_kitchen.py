@@ -10,6 +10,7 @@ import time
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
+WEB_URL = "http://127.0.0.1:8000"
 
 # (label, argv relative to python)
 WORKERS: list[tuple[str, list[str]]] = [
@@ -72,12 +73,22 @@ def _shutdown(procs: list[tuple[str, subprocess.Popen]], *, force: bool = False)
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="Start Chaotic Kitchen workers (router, stations, retry)."
+        description="Start Chaotic Kitchen workers (router, stations, retry, web board)."
     )
-    parser.parse_args()
+    parser.add_argument(
+        "--no-web",
+        action="store_true",
+        help="Do not start the FastAPI web board",
+    )
+    args = parser.parse_args()
+
+    jobs = list(WORKERS)
+    if not args.no_web:
+        jobs.append(("web", ["web/main.py"]))
 
     print("[runner] Chaotic Kitchen — Ctrl+C to stop all workers", flush=True)
-    print("[runner] Board (separate):  python board/main.py", flush=True)
+    if not args.no_web:
+        print(f"[runner] Web board: open {WEB_URL} in your browser", flush=True)
     print("[runner] Producer (separate): python producer/main.py 2", flush=True)
 
     procs: list[tuple[str, subprocess.Popen]] = []
@@ -95,7 +106,7 @@ def main() -> int:
     signal.signal(signal.SIGTERM, on_signal)
 
     try:
-        for label, argv in WORKERS:
+        for label, argv in jobs:
             if stopping:
                 break
             procs.append((label, _start(label, argv)))

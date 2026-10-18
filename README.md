@@ -67,22 +67,22 @@ docker compose up init-topics
 
 ## Run
 
-Start order: Kafka → kitchen workers → board → producer.
+Start order: Kafka → kitchen (+ web board) → producer.
 
 ```bash
 source .venv/bin/activate
 
-# Terminal 1 — router, stations, retry
+# Terminal 1 — router, stations, retry, web board → http://127.0.0.1:8000
 python run_kitchen.py
 
-# Terminal 2 — live web board → http://127.0.0.1:8000
-python web/main.py
-
-# Terminal 3 — flood the kitchen (orders per second)
+# Terminal 2 — flood the kitchen (orders per second)
 python producer/main.py 2
 ```
 
-Open http://127.0.0.1:8000 for counts, recent events, and a **Place order** button
+Open http://127.0.0.1:8000 in your browser after the kitchen starts.
+Use `--no-web` for workers only.
+
+The board shows counts, recent events, and a **Place order** button
 (sends one message to `orders.incoming`; works with or without the flood producer).
 
 Optional ASCII board (uses its own consumer group; can run beside the web board):
