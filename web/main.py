@@ -9,7 +9,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -140,6 +140,11 @@ app.mount("/static", StaticFiles(directory=STATIC), name="static")
 @app.get("/")
 async def index() -> FileResponse:
     return FileResponse(STATIC / "index.html")
+
+
+@app.get("/favicon.ico")
+async def favicon() -> Response:
+    return Response(status_code=204)
 
 
 @app.websocket("/ws")
