@@ -2,21 +2,25 @@ from __future__ import annotations
 
 import asyncio
 import json
+import random
 import sys
 import threading
+import uuid
 from collections import Counter
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse, Response
 from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel, Field
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from shared.kafka_client import make_consumer
+from shared.kafka_client import delivery_report, make_consumer, make_producer
 from shared.models import (
+    ITEM_STATION,
     TOPIC_BURNT,
     TOPIC_DESSERT,
     TOPIC_DISCARDED,
@@ -123,14 +127,28 @@ class BoardHub:
 
 
 hub = BoardHub()
+_producer = None
+MENU = sorted(ITEM_STATION.keys())
+
+
+class PlaceOrderBody(BaseModel):
+    item: str | None = Field(
+        default=None,
+        description="Menu item; omit or null to pick a random one",
+    )
 
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
+    global _producer
+    _producer = make_producer()
     hub.start(asyncio.get_running_loop())
     print("Web board on http://127.0.0.1:8000  (Ctrl+C to stop)")
     yield
     hub.stop()
+    if _producer is not None:
+        _producer.flush(2)
+        _producer = None
 
 
 app = FastAPI(title="Chaotic Kitchen", lifespan=lifespan)
@@ -146,6 +164,35 @@ async def index() -> FileResponse:
 async def favicon() -> Response:
     return Response(status_code=204)
 
+
+@app.get("/api/items")
+async def list_items() -> dict:
+    return {"items": MENU}
+
+
+@app.post("/api/orders")
+async def place_order(body: PlaceOrderBody | None = None) -> dict:
+    if _producer is None:
+        raise HTTPException(status_code=503, detail="Producer not ready")
+
+    item = (body.item if body else None) or random.choice(MENU)
+    if item not in ITEM_STATION:
+        raise HTTPException(status_code=400, detail=f"Unknown item: {item}")
+
+    order = Order.new(order_id=f"ord-{uuid.uuid4().hex[:8]}", item=item)
+    _producer.produce(
+        TOPIC_INCOMING,
+        key=order.order_id.encode("utf-8"),
+        value=order.to_json().encode("utf-8"),
+        callback=delivery_report,
+    )
+    _producer.poll(0)
+    _producer.flush(1.0)
+    return {
+        "order_id": order.order_id,
+        "item": order.item,
+        "station": order.station,
+    }
 
 @app.websocket("/ws")
 async def ws_board(ws: WebSocket) -> None:

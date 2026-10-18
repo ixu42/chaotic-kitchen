@@ -82,7 +82,8 @@ python web/main.py
 python producer/main.py 2
 ```
 
-Open http://127.0.0.1:8000 for counts and recent events (WebSocket).
+Open http://127.0.0.1:8000 for counts, recent events, and a **Place order** button
+(sends one message to `orders.incoming`; works with or without the flood producer).
 
 Optional ASCII board (uses its own consumer group; can run beside the web board):
 

@@ -100,6 +100,52 @@
     }
     #recent li:last-child { border-bottom: none; }
     #recent li.empty { color: var(--muted); }
+    .order-bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.6rem;
+      align-items: center;
+      margin-bottom: 1.25rem;
+      padding: 0.85rem 1rem;
+      background: var(--panel);
+      border: 1px solid var(--line);
+    }
+    .order-bar label {
+      font-size: 0.75rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+    .order-bar select {
+      font: inherit;
+      color: var(--ink);
+      background: var(--bg);
+      border: 1px solid var(--line);
+      padding: 0.4rem 0.55rem;
+      min-width: 10rem;
+    }
+    .order-bar button {
+      font: inherit;
+      color: var(--bg);
+      background: var(--accent);
+      border: 1px solid var(--accent);
+      padding: 0.45rem 0.9rem;
+      cursor: pointer;
+    }
+    .order-bar button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    .order-bar button:hover:not(:disabled) {
+      filter: brightness(1.05);
+    }
+    #order-msg {
+      font-size: 0.85rem;
+      color: var(--muted);
+      min-height: 1.2em;
+    }
+    #order-msg.ok { color: var(--ready); }
+    #order-msg.bad { color: var(--burnt); }
   </style>
 </head>
 <body>
@@ -107,6 +153,15 @@
     <h1>Chaotic Kitchen — Live</h1>
     <div id="status">connecting…</div>
   </header>
+
+  <div class="order-bar">
+    <label for="item">Place order</label>
+    <select id="item" aria-label="Menu item">
+      <option value="">random</option>
+    </select>
+    <button type="button" id="place-order">Send</button>
+    <span id="order-msg" aria-live="polite"></span>
+  </div>
 
   <div class="grid" aria-label="Kitchen counts">
     <div class="metric"><span class="label">Incoming</span><span class="value" id="c-incoming">0</span></div>
@@ -136,6 +191,47 @@
 
     const statusEl = document.getElementById("status");
     const recentEl = document.getElementById("recent");
+    const itemEl = document.getElementById("item");
+    const placeBtn = document.getElementById("place-order");
+    const orderMsg = document.getElementById("order-msg");
+
+    async function loadMenu() {
+      try {
+        const res = await fetch("/api/items");
+        const data = await res.json();
+        for (const item of data.items || []) {
+          const opt = document.createElement("option");
+          opt.value = item;
+          opt.textContent = item;
+          itemEl.appendChild(opt);
+        }
+      } catch (_) {}
+    }
+
+    placeBtn.addEventListener("click", async () => {
+      placeBtn.disabled = true;
+      orderMsg.textContent = "sending…";
+      orderMsg.className = "";
+      try {
+        const item = itemEl.value;
+        const res = await fetch("/api/orders", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(item ? { item } : {}),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          throw new Error(data.detail || res.statusText);
+        }
+        orderMsg.textContent = `sent ${data.order_id} (${data.item} → ${data.station})`;
+        orderMsg.className = "ok";
+      } catch (err) {
+        orderMsg.textContent = String(err.message || err);
+        orderMsg.className = "bad";
+      } finally {
+        placeBtn.disabled = false;
+      }
+    });
 
     function apply(state) {
       const counts = state.counts || {};
@@ -183,6 +279,7 @@
       ws.onerror = () => ws.close();
     }
 
+    loadMenu();
     connect();
   </script>
 </body>
