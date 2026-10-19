@@ -13,12 +13,14 @@ from pathlib import Path
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse, Response
 from fastapi.staticfiles import StaticFiles
+from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 from pydantic import BaseModel, Field
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from shared.kafka_client import delivery_report, make_consumer, make_producer
+from shared.metrics import EVENTS_TOTAL, ORDERS_PLACED_TOTAL
 from shared.models import (
     ITEM_STATION,
     MAX_ATTEMPTS,
@@ -125,6 +127,7 @@ class BoardHub:
                         "counts": {t: self.counts[t] for t in TOPICS},
                         "recent": list(self.recent[-20:]),
                     }
+                EVENTS_TOTAL.labels(topic=topic).inc()
 
                 if self._loop is not None:
                     asyncio.run_coroutine_threadsafe(self._broadcast(payload), self._loop)
@@ -205,11 +208,18 @@ async def place_order(body: PlaceOrderBody | None = None) -> dict:
     )
     _producer.poll(0)
     _producer.flush(1.0)
+    ORDERS_PLACED_TOTAL.labels(item=order.item, station=order.station).inc()
     return {
         "order_id": order.order_id,
         "item": order.item,
         "station": order.station,
     }
+
+
+@app.get("/metrics")
+async def metrics() -> Response:
+    return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)
+
 
 @app.websocket("/ws")
 async def ws_board(ws: WebSocket) -> None:
@@ -229,7 +239,8 @@ def main() -> None:
 
     uvicorn.run(
         "web.main:app",
-        host="127.0.0.1",
+        # Listen beyond loopback so Prometheus in Docker can scrape /metrics.
+        host="0.0.0.0",
         port=8000,
         reload=False,
         log_level="info",

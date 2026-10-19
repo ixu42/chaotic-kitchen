@@ -14,6 +14,7 @@ Useful for learning: topics, producers, consumers, consumer groups, keys, DLQ.
 - Python 3.12
 - `confluent-kafka` 2.15.1
 - FastAPI + Uvicorn (local web board)
+- Prometheus + Grafana (optional ops dashboards)
 
 ## Architecture
 
@@ -93,6 +94,20 @@ python board/main.py
 
 Turn up the producer rate (`5`, `10`, …) and watch grill lag / burns climb.
 
+## Ops dashboards (Prometheus + Grafana)
+
+`docker compose up -d` also starts Kafka exporter, Prometheus, and Grafana.
+
+| UI | URL |
+|----|-----|
+| Web board | http://127.0.0.1:8000 |
+| Grafana | http://127.0.0.1:3000 (anonymous viewer, or `admin` / `admin`) |
+| Prometheus | http://127.0.0.1:9090 |
+
+Open the **Chaotic Kitchen** dashboard in Grafana for event rates, burn share, and consumer lag.
+
+App metrics are scraped from the host web board (`/metrics`). Keep `run_kitchen.py` (or `python web/main.py`) running so those series stay fresh. Lag comes from `kafka-exporter` inside Compose.
+
 ## Optional: inspect topics
 
 ```bash
@@ -127,3 +142,4 @@ docker compose down -v
 - Dead-letter topic with retry and a final discard topic
 - Backoff before retry — without a pause, burnt orders can loop `burnt → station → burnt` and flood the system
 - Backpressure / lag visible when grill is slower than intake
+- Prometheus metrics + Grafana for rates, burn share, and consumer lag

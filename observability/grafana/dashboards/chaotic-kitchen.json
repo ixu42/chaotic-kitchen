@@ -1,0 +1,144 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "title": "Event rate by topic",
+      "type": "timeseries",
+      "gridPos": { "h": 9, "w": 12, "x": 0, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops",
+          "custom": { "drawStyle": "line", "fillOpacity": 15, "spanNulls": false }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "expr": "sum by (topic) (rate(chaotic_kitchen_events_total[1m]))",
+          "legendFormat": "{{topic}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "title": "Consumer group lag",
+      "type": "timeseries",
+      "gridPos": { "h": 9, "w": 12, "x": 12, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": { "drawStyle": "line", "fillOpacity": 15 }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "expr": "sum by (consumergroup, topic) (kafka_consumergroup_lag)",
+          "legendFormat": "{{consumergroup}} / {{topic}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "title": "Ready / burnt / discarded rate",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 9 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "expr": "rate(chaotic_kitchen_events_total{topic=\"orders.ready\"}[1m])",
+          "legendFormat": "ready",
+          "refId": "A"
+        },
+        {
+          "expr": "rate(chaotic_kitchen_events_total{topic=\"orders.burnt\"}[1m])",
+          "legendFormat": "burnt",
+          "refId": "B"
+        },
+        {
+          "expr": "rate(chaotic_kitchen_events_total{topic=\"orders.discarded\"}[1m])",
+          "legendFormat": "discarded",
+          "refId": "C"
+        }
+      ]
+    },
+    {
+      "title": "Burn share (burnt / (ready + burnt))",
+      "description": "Approx failure share among finished cook outcomes observed by the web board.",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 9 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": { "unit": "percentunit", "min": 0, "max": 1 },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "expr": "sum(rate(chaotic_kitchen_events_total{topic=\"orders.burnt\"}[1m])) / clamp_min(sum(rate(chaotic_kitchen_events_total{topic=~\"orders.ready|orders.burnt\"}[1m])), 1e-9)",
+          "legendFormat": "burn share",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "title": "Totals (web board)",
+      "type": "stat",
+      "gridPos": { "h": 5, "w": 16, "x": 0, "y": 17 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "targets": [
+        {
+          "expr": "chaotic_kitchen_events_total{topic=\"orders.incoming\"}",
+          "legendFormat": "incoming",
+          "refId": "A"
+        },
+        {
+          "expr": "chaotic_kitchen_events_total{topic=\"orders.ready\"}",
+          "legendFormat": "ready",
+          "refId": "B"
+        },
+        {
+          "expr": "chaotic_kitchen_events_total{topic=\"orders.burnt\"}",
+          "legendFormat": "burnt",
+          "refId": "C"
+        },
+        {
+          "expr": "chaotic_kitchen_events_total{topic=\"orders.discarded\"}",
+          "legendFormat": "discarded",
+          "refId": "D"
+        }
+      ]
+    },
+    {
+      "title": "Orders placed via UI",
+      "type": "stat",
+      "gridPos": { "h": 5, "w": 8, "x": 16, "y": 17 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "targets": [
+        {
+          "expr": "sum(chaotic_kitchen_orders_placed_total)",
+          "legendFormat": "placed",
+          "refId": "A"
+        }
+      ]
+    }
+  ],
+  "refresh": "5s",
+  "schemaVersion": 39,
+  "tags": ["chaotic-kitchen", "kafka"],
+  "templating": { "list": [] },
+  "time": { "from": "now-15m", "to": "now" },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "Chaotic Kitchen",
+  "uid": "chaotic-kitchen",
+  "version": 1
+}
