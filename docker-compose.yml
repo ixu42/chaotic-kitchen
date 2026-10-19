@@ -1,3 +1,17 @@
+x-app-base: &app-base
+  build:
+    context: .
+  image: chaotic-kitchen-app:local
+  environment:
+    KAFKA_BOOTSTRAP: kafka:29092
+    PYTHONUNBUFFERED: "1"
+  depends_on:
+    kafka:
+      condition: service_healthy
+    init-topics:
+      condition: service_completed_successfully
+  restart: unless-stopped
+
 services:
   kafka:
     image: apache/kafka:4.3.1
@@ -90,3 +104,41 @@ services:
       - "3000:3000"
     depends_on:
       - prometheus
+
+  router:
+    <<: *app-base
+    profiles: ["app"]
+    command: ["python", "router/main.py"]
+
+  station-grill:
+    <<: *app-base
+    profiles: ["app"]
+    command: ["python", "workers/station.py", "grill"]
+
+  station-drinks:
+    <<: *app-base
+    profiles: ["app"]
+    command: ["python", "workers/station.py", "drinks"]
+
+  station-dessert:
+    <<: *app-base
+    profiles: ["app"]
+    command: ["python", "workers/station.py", "dessert"]
+
+  retry:
+    <<: *app-base
+    profiles: ["app"]
+    command: ["python", "workers/retry.py"]
+
+  web:
+    <<: *app-base
+    profiles: ["app"]
+    command: ["python", "web/main.py"]
+    ports:
+      - "8000:8000"
+
+  producer:
+    <<: *app-base
+    profiles: ["tools"]
+    command: ["python", "producer/main.py", "2"]
+    restart: "no"

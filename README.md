@@ -14,7 +14,7 @@ Useful for learning: topics, producers, consumers, consumer groups, keys, DLQ.
 - Python 3.12
 - `confluent-kafka` 2.15.1
 - FastAPI + Uvicorn (local web board)
-- Prometheus + Grafana (optional ops dashboards)
+- Prometheus + Grafana (ops dashboards)
 
 ## Architecture
 
@@ -48,30 +48,30 @@ Solid arrows = order path. Dotted arrows = live board observing. Stations = gril
 | `orders.burnt` | Dead-letter (failures, retried) |
 | `orders.discarded` | Gave up after max attempts / poison |
 
-## Setup
+## Quick start (all Docker)
 
 ```bash
-cd /path/to/chaotic-kitchen
+docker compose --profile app up --build -d
+```
+
+This starts Kafka, all workers, the web board, Prometheus, and Grafana. Open
+http://127.0.0.1:8000 and place orders from the UI.
+
+To continuously produce two orders per second:
+
+```bash
+docker compose run --rm producer
+```
+
+## Local development
+
+Use this workflow when editing Python so you do not need to rebuild the image:
+
+```bash
 python3 -m venv .venv
 source .venv/bin/activate
-pip install -r requirements.txt
+python -m pip install -r requirements.txt
 docker compose up -d
-```
-
-Wait until Kafka is healthy and `init-topics` finishes (`docker compose ps`).
-
-If Kafka was already running from an older checkout, recreate topics:
-
-```bash
-docker compose up init-topics
-```
-
-## Run
-
-Start order: Kafka → kitchen (+ web board) → producer.
-
-```bash
-source .venv/bin/activate
 
 # Terminal 1 — router, stations, retry, web board → http://127.0.0.1:8000
 python run_kitchen.py
@@ -80,8 +80,8 @@ python run_kitchen.py
 python producer/main.py 2
 ```
 
-Open http://127.0.0.1:8000 in your browser after the kitchen starts.
-Use `--no-web` for workers only.
+Do not run `run_kitchen.py` while the Compose `app` profile is active: that would
+start duplicate workers and both web processes would compete for port 8000.
 
 The board shows counts, recent events, and a **Place order** button
 (sends one message to `orders.incoming`; works with or without the flood producer).
@@ -96,7 +96,7 @@ Turn up the producer rate (`5`, `10`, …) and watch grill lag / burns climb.
 
 ## Ops dashboards (Prometheus + Grafana)
 
-`docker compose up -d` also starts Kafka exporter, Prometheus, and Grafana.
+Both Docker workflows start Kafka exporter, Prometheus, and Grafana.
 
 | UI | URL |
 |----|-----|
@@ -106,7 +106,8 @@ Turn up the producer rate (`5`, `10`, …) and watch grill lag / burns climb.
 
 Open the **Chaotic Kitchen** dashboard in Grafana for event rates, burn share, and consumer lag.
 
-App metrics are scraped from the host web board (`/metrics`). Keep `run_kitchen.py` (or `python web/main.py`) running so those series stay fresh. Lag comes from `kafka-exporter` inside Compose.
+App metrics are scraped from the web board (`/metrics`), whether it runs locally or
+in Compose. Lag comes from `kafka-exporter`.
 
 ## Optional: inspect topics
 
@@ -132,6 +133,10 @@ Swap `orders.incoming` for `station.grill`, `orders.ready`, `orders.burnt`, `ord
 ## Stop
 
 ```bash
+# All-Docker workflow
+docker compose --profile app down -v
+
+# Local-development workflow
 docker compose down -v
 ```
 
